@@ -394,6 +394,7 @@ def find_abstract(file_txt):
     et renvoie les references du document
 """
 def find_references(file_txt):
+    print("***********************************************************************************************************")
     buf = ""
     line = file_txt.readline()
     ref = line.strip()
@@ -427,7 +428,9 @@ def find_references(file_txt):
             ref2 = line2.strip()
             if(("REFERENCES" in ref2.upper() or "R EFERENCES" in ref2.upper()) and ref2[0].upper() == "R"):
                 pos2 = True
-                break       
+                mark = True
+                break
+                
     drap = True               
     while(drap == True and line):
         while(line and pos2 != True):
@@ -440,10 +443,11 @@ def find_references(file_txt):
             buf = buf+"\n"
             line = file_txt.readline()
             ref  = line.strip()
+            print(len(ref))
             if(not line):
                 drap = False
                 break
-            elif((ref.isdigit() and col == True) or ("1967." in ref)):
+            elif ref.isdigit() and col:
                 file_txt.seek(position,0)
                 pos2 = True
             elif(line == "\n"):
@@ -484,7 +488,7 @@ def find_references(file_txt):
             ref = line.strip()
             if not line:
                 drap = False
-            elif("99–115." in ref):
+            elif "     " in ref and mark:
                 pos2 = False
             elif(ref.isdigit()):
                 pos2 = False
@@ -499,10 +503,9 @@ def find_references(file_txt):
                     position = file_txt.tell()
                     pos2 = False
                 else:
-                    file_txt.seek(posi,0)
-    
+                    file_txt.seek(posi,0)      
     buf = buf.replace("\n"," ")
     buf = buf.replace("References","")
     buf = buf.replace("R EFERENCES","")
-    return buf     
+    return buf        
 
