@@ -334,7 +334,6 @@ def find_affiliation(file_txt):
     et renvoie le(s) auteur(s) du document
 """
 def find_author(file_txt):
-    email=find_email(file_txt) #appel de la fonction pour recuperer les adresses mails que l'on stocke dans une variable
     global position
     file_txt.seek(position,0) #recupere la position apres lecture du titre
     buf=""
@@ -349,16 +348,20 @@ def find_author(file_txt):
     while line!="\n": #on va jusqu'a la prochaine ligne vide pour se positionner au bon endroit pour la lecture de abstract
         while auteur:
             if "1st" in author or "2nd" in author or "rd " in author: #on elimine les nombres cardinaux
-                author=author.replace("1st","")
-                author=author.replace("2nd","")
-                author=author.replace("rd","")
+                author=author.replace("1st","").replace("2nd","").replace("rd","")
             author=author.replace(". ",".")
-            author=author.replace(" and "," ")
+            author=author.replace(" and "," & ")
             for i in author:
                 if i in nb or i=="∗" or i=="\\" or i=="[" or i=="]" or i == ",":
                     author=author.replace(i,"")
                 author=author.replace("  "," ") #on remplace le double espace par un simple espace
             buf=buf+" "+author
+            
+            position=file_txt.tell()
+            email=find_email(file_txt)
+            affil=find_affiliation(file_txt)
+            file_txt.seek(position,0)
+            
             auteur=False
             line=file_txt.readline()
             author=line.strip()
@@ -369,31 +372,37 @@ def find_author(file_txt):
                     auteur=False
         line=file_txt.readline()
         position=file_txt.tell() #on memorise la position
+        
     while line=="\n": #on se positionne sur la prochaine ligne non vide
         line=file_txt.readline()
         author=line.strip()
     
-    mail=find_email(file_txt) #appel de la fonction pour recuperer les adresses mails dans la seconde section d'auteurs que l'on stocke dans une variable
+    #mail=find_email(file_txt) #appel de la fonction pour recuperer les adresses mails dans la seconde section d'auteurs que l'on stocke dans une variable
     #seconde ligne du/des auteurs
     auteur=True
+    pass2=False
     while line!="\n" and auteur and len(author)>60 and len(author)<65:
-            for indice in author:
-                if indice=="," or indice in nb: #condition d'arret: une virgule ou un chiffre
-                    auteur=False
-            position=file_txt.tell() #on memorise la position
-            for i in author:
-                author=author.replace("  "," ") #on remplace le double espace par un simple espace
-            buf=buf+" "+author
-            line=file_txt.readline()
-            author=line.strip()
+        pass2=True
+        for indice in author:
+            if indice=="," or indice in nb: #condition d'arret: une virgule ou un chiffre
+                auteur=False
+        position=file_txt.tell() #on memorise la position
+        for i in author:
+            author=author.replace("  "," ") #on remplace le double espace par un simple espace
+        buf=buf+" "+author
+        line=file_txt.readline()
+        author=line.strip()
             
     #ajout des virgules comme séparateur entre les noms
     temp = ""
     count = 0
     buf = buf.strip()
+    buf=buf.replace("Torres Moreno","Torres-Moreno")
     for indice in range(len(buf)):
         if buf[indice]==" " and not ((buf[indice]==" " and buf[indice-1]=="e" and buf[indice-2]== "L") or (buf[indice]==" " and buf[indice-1]=="a" and buf[indice-2]== "d")):
             count = count + 1 #comptage des espaces
+        if (buf[indice]==" " and buf[indice+1]=="&") or (buf[indice]==" " and buf[indice-1]=="&"):
+            count=0
         if count == 2:
             temp = temp + ","
             count = 0
@@ -401,11 +410,15 @@ def find_author(file_txt):
     
     #on ajoute les adresses mails à la suite du/des nom(s) d'auteur(s)
     if email!="":
-        temp=temp+", adresse(s) : "+email
-        temp=temp.replace("  "," ")
-        temp=temp.replace(", ,",",")
-    if mail!="":
-        temp=temp+", adresse(s) : "+mail
+        temp=temp+"\n"+email
+    if affil!="":
+        temp=temp+"\n"+affil
+    temp=temp.replace("  "," ")
+    temp=temp.replace(", ,",",")
+    #if mail!="":
+        #temp=temp+", adresse(s) : "+mail
+    if pass2:
+        temp=temp+" "+affil
     
     return temp
 
