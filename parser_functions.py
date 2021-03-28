@@ -15,6 +15,7 @@ position=0
 
 maj=list(string.ascii_uppercase) #liste de toutes les majuscules
 minu=list(string.ascii_lowercase) #liste de toutes les minuscules
+nb=string.digits #liste des chiffres
 
 """
     La fonction conversion prend le chemin d'un repertoire et convertit a l'aide de la commande pdftotext -layout
@@ -23,6 +24,16 @@ minu=list(string.ascii_lowercase) #liste de toutes les minuscules
 """
 def conversions(repertory,param):
     fichiers=[f for f in listdir(repertory) if isfile(join(repertory,f))]
+    
+    print("Liste des fichiers contenus dans le répertoire : ")
+    for i in fichiers:
+        print(basename(i))
+    name=input("Veuillez indiquer quel(s) fichier(s) analyser en écrivant le(s) nom(s), l'utilisation d'un séparateur n'est pas nécessaire (indiquez all pour analyser tous les fichiers) :" + "\n")
+    if name.strip()!="all":
+        parseList=""
+        name=name.replace(" ","")
+        name=name.replace(",","")
+        parseList=parseList+name
     
     if param=="-t":
         repTxt="txt_"+repertory
@@ -35,8 +46,14 @@ def conversions(repertory,param):
         os.makedirs(repTxt)
         
         #conversion du fichier pdf avec la commande pdftotext -layout
+        if len(parseList)==0:
+            print("Aucun fichier analysé. Veuillez entrer un nom de fichier")
         for i in fichiers:
             txtName=basename(i)
+            if name!="all" and txtName not in parseList:
+                continue
+            if txtName in parseList:
+                parseList=parseList.replace(txtName,"")
             if ".pdf" in txtName:
                 txt=txtName[:(len(txtName)-4)]+".txt"
                 toPdf="pdftotext -layout "+repertory+"/"+i+" "+repTxt+"/"+txt
@@ -45,6 +62,9 @@ def conversions(repertory,param):
                 createDescription(repTxt+"/"+txt,repTxt,"-t")
             else:
                 print(txtName+" n'est pas un fichier pdf")
+        #if len(os.listdir(repTxt))==0:
+        if len(parseList)!=0:
+            print(parseList + " n'a/n'ont pu(s) etre analysé(s). Veuillez verifier l'orthographe du/des fichier(s) indiqué(s)")
     
     elif param=="-x":
         repXml="xml_"+repertory
@@ -57,8 +77,14 @@ def conversions(repertory,param):
         os.makedirs(repXml)
         
         #conversion du fichier pdf avec la commande pdftotext -layout
+        if len(parseList)==0:
+            print("Aucun fichier analysé. Veuillez entrer un nom de fichier")
         for i in fichiers:
             xmlName=basename(i)
+            if name!="all" and xmlName not in parseList:
+                continue
+            if txtName in parseList:
+                parseList=parseList.replace(txtName,"")
             if ".pdf" in xmlName:
                 xml=xmlName[:(len(xmlName)-4)]+".xml"
                 toPdf="pdftotext -layout "+repertory+"/"+i+" "+repXml+"/"+xml
@@ -67,6 +93,8 @@ def conversions(repertory,param):
                 createDescription(repXml+"/"+xml,repXml,"-x")
             else:
                 print(xmlName+" n'est pas un fichier pdf")
+            if len(parseList)!=0:
+                print(parseList + " n'a/n'ont pu(s) etre analysé(s). Veuillez verifier l'orthographe du/des fichier(s) indiqué(s)")
 
 
 """
@@ -216,6 +244,92 @@ def find_email(file_txt):
 
 
 """
+    La fonction find_affiliation prend en parametre le fichier texte ouvert
+    et renvoie les affiliations et adresses des affiliations du/des auteur(s) du document
+"""
+def find_affiliation(file_txt):
+    global position
+    file_txt.seek(position,0) #recupere la derniere position enregistree
+    buf=""
+    line=file_txt.readline() #lecture de la ligne suivante
+    affil=line.strip()
+    cache=""
+    parent=False
+    pos=0
+    while line!="\n" and "ABSTRACT" not in line.upper():
+        if "@" in line and "      " in affil:
+            for i in range(len(affil)):
+                if affil[i]==" " and affil[i-1]==" ":
+                    pos=i
+                if affil[i]=="@":
+                    affil=affil[0:pos]
+                    break
+            pos=0
+        if "@" not in affil and ("[" not in affil or "]" not in affil) and ".edu" not in affil and ".fr" not in affil:
+            buf=buf+"$"
+            for indice in range(len(affil)):
+                if affil[indice]=="(":
+                    parent=True
+                if affil[indice]==")":
+                    parent=False
+                    buf=buf+cache
+                    cache=""
+                if parent and affil[indice]==".":
+                    cache=""
+                    break
+                if parent:
+                    cache=cache+affil[indice]
+                else:
+                    buf=buf+affil[indice]
+            if " mx" in buf:
+                buf=buf[0:-2]
+        line=file_txt.readline()
+        affil=line.strip()
+    
+    #pour la lecture des colonnes
+    copie=False
+    not_copie=False
+    continu=True
+    bufer=""
+    temp=""
+    if "      " not in buf:
+        temp=buf
+    while "      " in buf and continu:
+        bufer=""
+        for i in range(len(buf)):
+            if buf[i-1]=="$" and buf[i-2]!="[":
+                copie=True
+                not_copie=False
+            if (buf[i]==" " and buf[i-1]==" ") or (buf[i]=="U" and buf[i-1]==" " and buf[i-2]=="d"):
+                copie=False
+            if copie:
+                temp=temp+buf[i]
+            if not copie and buf[i]!=" ":
+                not_copie=True
+            if not_copie:
+                bufer=bufer+buf[i]
+        temp=temp+"¤"
+        for j in range(len(bufer)):
+            if bufer[j]!="$":
+                continu=True
+                break
+            else:
+                continu=False
+        buf=bufer
+    buf=""
+    for j in range(len(bufer)):
+        if bufer[j]!="$":
+            temp=temp+bufer
+            bufer=""
+            break
+    if temp!="":
+        temp="¤"+temp.replace("$"," ").strip()
+        temp=temp.replace("N e w Y o r k","New York").replace("N Y","NY").replace("U S A","USA")
+        
+    return temp
+
+
+"""
     La fonction find_author prend en parametre le fichier texte ouvert
     et renvoie le(s) auteur(s) du document
 """
@@ -234,7 +348,6 @@ def find_author(file_txt):
     #premiere ligne du/des auteur(s)
     while line!="\n": #on va jusqu'a la prochaine ligne vide pour se positionner au bon endroit pour la lecture de abstract
         while auteur:
-            nb=string.digits #liste des chiffres
             if "1st" in author or "2nd" in author or "rd " in author: #on elimine les nombres cardinaux
                 author=author.replace("1st","")
                 author=author.replace("2nd","")
@@ -508,4 +621,3 @@ def find_references(file_txt):
     buf = buf.replace("References","")
     buf = buf.replace("R EFERENCES","")
     return buf        
-
