@@ -112,6 +112,7 @@ def createDescription(file,repTxtXml,param):
         doc.write("Titre du document : "+find_title(fichier)+"\n"+"\n")
         doc.write("Auteur(s) du document : "+find_author(fichier)+"\n"+"\n")
         doc.write("Abstract de l'auteur : "+find_abstract(fichier)+"\n"+"\n")
+        doc.write("I. Introduction : "+find_introduction(fichier)+"\n"+"\n")
         doc.write("Références bibliographiques du document : "+find_references(fichier)+"\n")
         doc.write("\n"+"\n"+"\n"+"---------------Create with PDF_Document_Analyser---------------"+"\n"+"\n")
         doc.write("@Copyright all right reserved UBS")
@@ -122,6 +123,7 @@ def createDescription(file,repTxtXml,param):
         doc.write("\t"+"<titre>"+find_title(fichier)+"</titre>"+"\n"+"\n")
         doc.write("\t"+"<auteur>"+find_author(fichier)+"</auteur>"+"\n"+"\n")
         doc.write("\t"+"<abstract>"+find_abstract(fichier)+"</abstract>"+"\n"+"\n")
+        doc.write("\t"+"<introduction>"+find_introduction(fichier)+"</introduction>"+"\n"+"\n")
         doc.write("\t"+"<biblio>"+find_references(fichier)+"</biblio>"+"\n"+"\n")
         doc.write("</article>")
     
@@ -429,6 +431,7 @@ def find_author(file_txt):
 """
 def find_abstract(file_txt):
     global position
+    global position2
     file_txt.seek(position,0) #recupere la position apres lecture du/des auteur(s)
     buf=""
     line=file_txt.readline() #lecture de la ligne suivante
@@ -438,6 +441,7 @@ def find_abstract(file_txt):
     
     #premiere ligne de abstract
     while line == "\n" or ("ABSTRACT" not in abstract.upper()) or (abstract[0] not in maj): #condition pour débuter abstract: une ligne non vide et le mot Abstract ou une majuscule
+        position2 = file_txt.tell()
         line = file_txt.readline()
         abstract = line.strip()
         for indice in abstract:
@@ -446,9 +450,11 @@ def find_abstract(file_txt):
         if line != "\n" and abstrait and esp not in line:
             break
     if (abstract.upper() == "ABSTRACT") or ("ABSTRACT    " in abstract.upper()): #on saute la ligne qui ne contient que le mot Abstract
-    	line = file_txt.readline()
-    	abstract = line.strip()
+        position2 = file_txt.tell()
+        line = file_txt.readline()
+        abstract = line.strip()
     while line == "\n" or abstract[0] not in maj or (esp in line and esp not in abstract): #condition pour débuter le paragraphe abstract: une ligne non vide et une colonne non vide et une majuscule
+        position2 = file_txt.tell()
         line = file_txt.readline()
         abstract = line.strip()
     abstract = abstract.replace("Abstract.","")
@@ -467,7 +473,7 @@ def find_abstract(file_txt):
     #suppression du tiret en fin de ligne quand une seule colonne
     if buf[len(buf)-1]=="-" or tiret:
         buf=buf[:-1]
-     
+        
     #lignes suivantes de abstract
     line=file_txt.readline()
     abstract=line.strip()
@@ -516,11 +522,99 @@ def find_abstract(file_txt):
 
 
 """
+    la fonction find_Introduction prend en parametre le nom du fichier texte ouvert
+    et renvoie l'introduction du document
+"""
+def find_introduction(file_txt):
+    global position2
+    buf = " "
+    line = file_txt.readline()
+    intro = line.strip()
+    drap = True
+    col = False
+    pos2 = False
+    while(line == "\n" or ("INTRODUCTION" not in intro.upper() and "I NTRODUCTION" not in intro.upper()) ):
+        line = file_txt.readline()
+        intro = line.strip()
+        if("      " in intro):
+            col = True
+    while drap and line:
+        compt = 0
+        while not pos2:
+            # verification du point d'arret
+            if "2 " in line[:4] or "2. " in line[:4] or "II. " in intro[:4]:
+                drap = False
+                break
+            elif line == "\n" or (col  and "         " in line and "        " not in intro) or ("                                           " in line and "      " not in intro):
+                line = file_txt.readline()
+                intro = line.strip()
+                break
+            elif(intro.isdigit() and len(intro) < 4) or intro[:20].strip().isdigit():
+                file_txt.seek(position2,0)
+                pos2 = True
+                line = file_txt.readline()
+                intro = line.strip()
+                break      
+            elif(intro.isdigit() and len(intro) < 4) or intro[:20].strip().isdigit() or "distribution [8]." in line:
+                file_txt.seek(position2,0)
+                pos2 = True
+                line = file_txt.readline()
+                intro = line.strip()
+                break
+            elif "" in line or "" in line or "I. " in line or "https:" in line or ("     " in intro and len(intro.replace(" ","")) < 4) or "c " in line:
+                line = file_txt.readline()
+                intro = line.strip()
+                break
+            
+                
+                    
+            #lectur des lignes        
+            if "     " in intro:
+                buf = buf + intro[:intro.find("     ")] + " "
+            else:
+                buf = buf + intro + " "
+            buf = buf.replace("\n"," ")
+            line = file_txt.readline()
+            intro = line.strip() 
+            
+        while pos2:
+            #verification d'arret
+            if line == "\n":
+                line = file_txt.readline()
+                intro = line.strip()
+                position2 = file_txt.tell()
+                break
+            elif (intro.isdigit() and len(intro) < 4) or intro[:20].strip().isdigit():
+                pos2 = False
+                position2 = file_txt.tell()
+                line = file_txt.readline()
+                intro = line.strip()
+                break
+            elif "     "in intro and ("2 " in intro[intro.find("     "):].strip()[:4] or "2. " in intro[intro.find("     "):].strip()[:4] or "II. " in intro[intro.find("     "):].strip()[:4]):
+                drap = False
+                break
+                
+            #lectur des lignes
+            if "      " in intro:
+                buf = buf + intro[intro.find("     "):].strip() + " "
+                
+            elif "                                           " in line and "      " not in intro:
+                buf = buf + intro + " "
+            line = file_txt.readline()
+            intro = line.strip()
+            
+    buf = buf.replace("\n","")
+    while buf.find("  ") > -1:
+        buf = buf.replace("  "," ")
+    
+    return buf
+    
+
+"""
     La fonction find_reference prend en parametre le nom du fichier texte ouvert
     et renvoie les references du document
 """
 def find_references(file_txt):
-    print("***********************************************************************************************************")
     buf = ""
     line = file_txt.readline()
     ref = line.strip()
@@ -569,7 +663,6 @@ def find_references(file_txt):
             buf = buf+"\n"
             line = file_txt.readline()
             ref  = line.strip()
-            print(len(ref))
             if(not line):
                 drap = False
                 break
