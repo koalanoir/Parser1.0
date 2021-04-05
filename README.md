@@ -1,9 +1,14 @@
 # Parser1.0
 
-Syntaxe :
+Syntaxe de la commande :
   parser10.py [option] [arg]
   [option] : -t pour le format texte (format par défaut s'il n'est pas précisé), -x pour le format xml
   [arg] : repertoire , -help
+
+Syntaxe du menu :
+  all : mot clé pour parser tous les fichiers
+  [nom],[nom], ... ,[nom] : liste des fichiers à parser (la virgule est le seul séparateur accepté)
+  [nom] : nom d'un fichier pdf
 
 Description :
   parse est un outil d'aide à l'analyse de textes scientifiques.
