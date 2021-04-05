@@ -26,14 +26,20 @@ def conversions(repertory,param):
     fichiers=[f for f in listdir(repertory) if isfile(join(repertory,f))]
     
     print("Liste des fichiers contenus dans le répertoire : ")
+    name=""
+    parseList=[]
+    name_error=""
     for i in fichiers:
         print(basename(i))
-    name=input("Veuillez indiquer quel(s) fichier(s) analyser en écrivant le(s) nom(s), l'utilisation d'un séparateur n'est pas nécessaire (indiquez all pour analyser tous les fichiers) :" + "\n")
-    if name.strip()!="all":
-        parseList=""
-        name=name.replace(" ","")
-        name=name.replace(",","")
-        parseList=parseList+name
+        name=name+basename(i)+","
+    name=name[0:-1]
+    parseList=parseList+name.split(",")
+    name=input("Veuillez indiquer quel(s) fichier(s) analyser en écrivant le(s) nom(s), utilisez une virgule comme séparateur entre chaque nom (indiquez all pour analyser tous les fichiers) :" + "\n")
+    name=name.replace(" ","")
+    if name=="":
+        print("Aucun fichier analysé. Veuillez entrer un nom de fichier à parser")
+    if name!="all":
+        parseList=[]+name.split(",")
     
     if param=="-t":
         repTxt="txt_"+repertory
@@ -46,25 +52,23 @@ def conversions(repertory,param):
         os.makedirs(repTxt)
         
         #conversion du fichier pdf avec la commande pdftotext -layout
-        if len(parseList)==0:
-            print("Aucun fichier analysé. Veuillez entrer un nom de fichier")
-        for i in fichiers:
+        for i in parseList:
             txtName=basename(i)
-            if name!="all" and txtName not in parseList:
+            if txtName not in fichiers:
+                name_error=name_error+txtName
+                if ".pdf" not in txtName:
+                    name_error=name_error+" n'est pas un fichier pdf\n"
+                else:
+                    name_error=name_error+" n'a pu etre analysé. Veuillez verifier l'orthographe du fichier indiqué\n"
                 continue
-            if txtName in parseList:
-                parseList=parseList.replace(txtName,"")
             if ".pdf" in txtName:
                 txt=txtName[:(len(txtName)-4)]+".txt"
                 toPdf="pdftotext -layout "+repertory+"/"+i+" "+repTxt+"/"+txt
                 print(toPdf)
                 os.system(toPdf)
                 createDescription(repTxt+"/"+txt,repTxt,"-t")
-            else:
-                print(txtName+" n'est pas un fichier pdf")
-        #if len(os.listdir(repTxt))==0:
-        if len(parseList)!=0:
-            print(parseList + " n'a/n'ont pu(s) etre analysé(s). Veuillez verifier l'orthographe du/des fichier(s) indiqué(s)")
+        if name_error!="":
+            print(name_error[0:-1])
     
     elif param=="-x":
         repXml="xml_"+repertory
@@ -77,24 +81,23 @@ def conversions(repertory,param):
         os.makedirs(repXml)
         
         #conversion du fichier pdf avec la commande pdftotext -layout
-        if len(parseList)==0:
-            print("Aucun fichier analysé. Veuillez entrer un nom de fichier")
-        for i in fichiers:
+        for i in parseList:
             xmlName=basename(i)
-            if name!="all" and xmlName not in parseList:
+            if xmlName not in fichiers:
+                name_error=name_error+xmlName
+                if ".pdf" not in xmlName:
+                    name_error=name_error+" n'est pas un fichier pdf\n"
+                else:
+                    name_error=name_error+" n'a pu etre analysé. Veuillez verifier l'orthographe du fichier indiqué\n"
                 continue
-            if txtName in parseList:
-                parseList=parseList.replace(txtName,"")
             if ".pdf" in xmlName:
                 xml=xmlName[:(len(xmlName)-4)]+".xml"
                 toPdf="pdftotext -layout "+repertory+"/"+i+" "+repXml+"/"+xml
                 print(toPdf)
                 os.system(toPdf)
                 createDescription(repXml+"/"+xml,repXml,"-x")
-            else:
-                print(xmlName+" n'est pas un fichier pdf")
-            if len(parseList)!=0:
-                print(parseList + " n'a/n'ont pu(s) etre analysé(s). Veuillez verifier l'orthographe du/des fichier(s) indiqué(s)")
+        if name_error!="":
+            print(name_error[0:-1])
 
 
 """
@@ -110,9 +113,12 @@ def createDescription(file,repTxtXml,param):
         doc.write("*************** Summarize ***************"+"\n"+"\n")
         doc.write("Nom du fichier d'origine : "+find_filename(file)+"\n"+"\n")
         doc.write("Titre du document : "+find_title(fichier)+"\n"+"\n")
-        doc.write("Auteur(s) du document : "+find_author(fichier)+"\n"+"\n")
+        doc.write("Auteur(s) du document : \n"+create_author(fichier,param)+"\n"+"\n")
         doc.write("Abstract de l'auteur : "+find_abstract(fichier)+"\n"+"\n")
-        doc.write("I. Introduction : "+find_introduction(fichier)+"\n"+"\n")
+        doc.write("Introduction du document : "+find_introduction(fichier)+"\n"+"\n")
+        doc.write("Corps du document: "+find_corps(fichier)+"\n"+"\n")
+        doc.write("Conclusion du document : "+find_conclusion(fichier)+"\n"+"\n")
+        doc.write("Discussion du document : "+find_discussion(fichier)+"\n"+"\n")
         doc.write("Références bibliographiques du document : "+find_references(fichier)+"\n")
         doc.write("\n"+"\n"+"\n"+"---------------Create with PDF_Document_Analyser---------------"+"\n"+"\n")
         doc.write("@Copyright all right reserved UBS")
@@ -121,9 +127,12 @@ def createDescription(file,repTxtXml,param):
         doc.write("<article>"+"\n"+"\n")
         doc.write("\t"+"<preamble>"+find_filename(file)+"</preamble>"+"\n"+"\n")
         doc.write("\t"+"<titre>"+find_title(fichier)+"</titre>"+"\n"+"\n")
-        doc.write("\t"+"<auteur>"+find_author(fichier)+"</auteur>"+"\n"+"\n")
+        doc.write("\t"+"<auteurs>\n"+create_author(fichier,param)+"\t</auteurs>"+"\n"+"\n")
         doc.write("\t"+"<abstract>"+find_abstract(fichier)+"</abstract>"+"\n"+"\n")
         doc.write("\t"+"<introduction>"+find_introduction(fichier)+"</introduction>"+"\n"+"\n")
+        doc.write("\t"+"<corps>"+find_corps(fichier)+"</corps>"+"\n"+"\n")
+        doc.write("\t"+"<conclusion>"+find_conclusion(fichier)+"</conclusion>"+"\n"+"\n")
+        doc.write("\t"+"<discussion>"+find_discussion(fichier)+"</discussion>"+"\n"+"\n")
         doc.write("\t"+"<biblio>"+find_references(fichier)+"</biblio>"+"\n"+"\n")
         doc.write("</article>")
     
@@ -194,32 +203,42 @@ def find_email(file_txt):
     temp=""
     line=file_txt.readline() #lecture de la ligne suivante
     email=line.strip()
-    while line=="\n":
-        line=file_txt.readline()
-        email=line.strip()
     no_stop=False
     arrobase=False
     accolade=False
+    col="§"
     #reperage de l'adresse mail avec le symbole "@"
     while line!="\n":
-        if "@" in email or ".edu" in email:
+        if ".edu" in email and "      " not in email and "{" not in email:
+            email=email.replace("Q","@")
+            buf=buf+"{"
+            for j in email:
+                if j=="@":
+                    buf=buf+"}"
+                buf=buf+j
+            email=buf
+            buf=""
+        if "@" in email:
             email=email+" "
+            col="§"
             #si "@" en debut de ligne: adresse sur deux lignes
             if email[0]=="@":
                 buf=buf+mail #ligne precedente
-            for i in email:
-                if i=="{":
+            for i in range(len(email)):
+                if email[i]=="{":
                     accolade=True
-                if i=="}":
+                if email[i]=="}":
                     accolade=False
-                if i=="@":
+                if email[i]=="@":
                     arrobase=True
-                if i==" " and not accolade:
+                if email[i]==" " and not accolade:
                     if arrobase:
-                        buf=buf+temp
+                        buf=buf+col+temp
                         arrobase=False
                     temp=""
-                temp=temp+i
+                if email[i]==" " and email[i-1]==" " and email[i-2]!=" ":
+                    col=col+"§"
+                temp=temp+email[i]
             #si "-" ou "." en fin de ligne: adresse sur deux lignes
             if email[len(email)-2]=="-" or email[len(email)-2]==".":
                 no_stop=True
@@ -239,10 +258,49 @@ def find_email(file_txt):
     buf=buf.replace("- ","-")
     buf=buf.replace(" mx"," ")
     
-    for indice in range(len(buf)):
-        if buf[indice]==" " and buf[indice-1]!=",":
-            buf=buf.replace(" ",", ")
-    return buf
+    temp=""
+    bufer=""
+    copie=False
+    if "(" in buf or "{" in buf:
+        for j in buf:
+            if j=="@":
+                copie=True
+            if copie:
+                bufer=bufer+j
+        buf=buf.replace("(","").replace(")","").replace("{","").replace("}","").replace(" ","")
+        for i in buf:
+            if i==",":
+                temp=temp+bufer
+            temp=temp+i
+        continu=False
+    else:
+        continu=True
+        temp=""
+        bufer=""
+        copie=False
+    while continu:
+        continu=False
+        bufer=""
+        for indice in range(len(buf)):
+            if buf[indice]=="§" and buf[indice-1]!="§" and buf[indice+1]!="§":
+                copie=True
+            if buf[indice]=="§" and buf[indice+1]=="§":
+                copie=False
+            if copie:
+                temp=temp+buf[indice]
+            if not copie:
+                bufer=bufer+buf[indice]
+                if buf[indice]!="§":
+                    continu=True
+        bufer=bufer.replace("§§","§")
+        buf=bufer
+    temp=temp.replace("§","").strip()
+    
+    for indice in range(len(temp)):
+        if temp[indice]==" " and temp[indice-1]!=",":
+            temp=temp.replace(" ",",")
+    
+    return temp
 
 
 """
@@ -360,8 +418,8 @@ def find_author(file_txt):
             buf=buf+" "+author
             
             position=file_txt.tell()
-            email=find_email(file_txt)
-            affil=find_affiliation(file_txt)
+            email=find_email(file_txt) #appel de la fonction pour recuperer les adresses mails que l'on stocke dans une variable
+            affiliation=find_affiliation(file_txt)
             file_txt.seek(position,0)
             
             auteur=False
@@ -379,22 +437,32 @@ def find_author(file_txt):
         line=file_txt.readline()
         author=line.strip()
     
-    #mail=find_email(file_txt) #appel de la fonction pour recuperer les adresses mails dans la seconde section d'auteurs que l'on stocke dans une variable
+    pos=position
+    position=file_txt.tell()
+    mail=find_email(file_txt) #appel de la fonction pour recuperer les adresses mails dans la seconde section d'auteurs que l'on stocke dans une variable
+    if mail!="":
+        file_txt.seek(position,0)
+    else:
+        position=pos
+    
     #seconde ligne du/des auteurs
     auteur=True
-    pass2=False
+    pos=False
     while line!="\n" and auteur and len(author)>60 and len(author)<65:
-        pass2=True
         for indice in author:
             if indice=="," or indice in nb: #condition d'arret: une virgule ou un chiffre
                 auteur=False
         position=file_txt.tell() #on memorise la position
+        pos=True
         for i in author:
             author=author.replace("  "," ") #on remplace le double espace par un simple espace
         buf=buf+" "+author
         line=file_txt.readline()
         author=line.strip()
-            
+    if pos:
+        affil=find_affiliation(file_txt)
+        file_txt.seek(position,0)
+    
     #ajout des virgules comme séparateur entre les noms
     temp = ""
     count = 0
@@ -411,16 +479,14 @@ def find_author(file_txt):
         temp = temp + buf[indice]
     
     #on ajoute les adresses mails à la suite du/des nom(s) d'auteur(s)
-    if email!="":
-        temp=temp+"\n"+email
-    if affil!="":
-        temp=temp+"\n"+affil
+    temp=temp+"\n$"+email
+    if mail!="":
+        temp=temp+","+mail
+    temp=temp+"\n£"+affiliation
+    if pos:
+        temp=temp+" "+affil
     temp=temp.replace("  "," ")
     temp=temp.replace(", ,",",")
-    #if mail!="":
-        #temp=temp+", adresse(s) : "+mail
-    if pass2:
-        temp=temp+" "+affil
     
     return temp
 
@@ -527,6 +593,7 @@ def find_abstract(file_txt):
 """
 def find_introduction(file_txt):
     global position2
+    global position3
     buf = " "
     line = file_txt.readline()
     intro = line.strip()
@@ -539,10 +606,9 @@ def find_introduction(file_txt):
         if("      " in intro):
             col = True
     while drap and line:
-        compt = 0
         while not pos2:
-            # verification du point d'arret
-            if "2 " in line[:4] or "2. " in line[:4] or "II. " in intro[:4]:
+            # verification du point d'arret ou de passage a la deuxieme colonne
+            if ("2 " in line[:4] and ".2" not in line[:4]) or "2. " in line[:4] or "II. " in intro[:4]:
                 drap = False
                 break
             elif line == "\n" or (col  and "         " in line and "        " not in intro) or ("                                           " in line and "      " not in intro):
@@ -561,14 +627,12 @@ def find_introduction(file_txt):
                 line = file_txt.readline()
                 intro = line.strip()
                 break
-            elif "" in line or "" in line or "I. " in line or "https:" in line or ("     " in intro and len(intro.replace(" ","")) < 4) or "c " in line:
+            elif "" in line or "" in line or "I. " in line or "https:" in line or ("     " in intro and len(intro.replace(" ","")) < 3):
                 line = file_txt.readline()
                 intro = line.strip()
                 break
-            
-                
-                    
-            #lectur des lignes        
+               
+            #lecture des lignes de la premier colonne      
             if "     " in intro:
                 buf = buf + intro[:intro.find("     ")] + " "
             else:
@@ -594,44 +658,271 @@ def find_introduction(file_txt):
                 drap = False
                 break
                 
-            #lectur des lignes
-            if "      " in intro:
-                buf = buf + intro[intro.find("     "):].strip() + " "
+            #lecture des lignes
+            if "    " in intro:
+                buf = buf + intro[intro.find("    "):].strip() + " "
                 
             elif "                                           " in line and "      " not in intro:
                 buf = buf + intro + " "
             line = file_txt.readline()
             intro = line.strip()
-            
+   
+    if not pos2 and "2 The" in line:
+        position2 = file_txt.tell()
+        print
     buf = buf.replace("\n","")
     while buf.find("  ") > -1:
         buf = buf.replace("  "," ")
     
     return buf
+
+
+"""
+    La fonction find_corps prend en parametre le nom du fichier texte ouvert
+    et renvoie le corps du document
+"""
+def find_corps(file_txt):
+    global position
+    global position2
+    global position3
+    if position2==8468:
+        file_txt.seek(position2,0)
+    else:
+        file_txt.seek(position3,0)
+    buf = ""
+    line = file_txt.readline()
+    corps = line.strip()
+    pos2 = False
+    drap = True
+    col = False
     
+    while (line == "\n" or (("2  " not in line[:5] or ".2  " in line[:5]) and "2. " not in line[:4] and "II." not in corps[:4]) and line) and position2!=8468:
+        if "     "in corps and ("2  " in corps[corps.find("     "):].strip()[:5] or "2.  " in corps[corps.find("     "):].strip()[:5] or "II." in corps[corps.find("     "):].strip()[:4]):
+            pos2 = True
+            break
+        if "      " in corps:
+            col = True 
+        line = file_txt.readline()
+        corps = line.strip()
+    saut=False
+    while line and drap:
+        while not pos2 and line:
+            #condition de passage a la deuxieme ligne ou d'arrét ou de saut de ligne
+            if ("D ISCUSSION" in corps.upper()[:corps.find("    ")] or "DISCUSSION" in corps.upper()[:corps.find("    ")] or "  DISCUSION" in corps.upper() or "Discussion" in corps) and "," not in corps and "-" not in corps and len(corps)<=40:
+                drap = False
+                break
+            elif ("C ONCLUSION" in corps.upper()[:corps.find("    ")] or "CONCLUSION" in corps.upper()[:corps.find("    ")] or "  CONCLUSION" in corps.upper() or "Conclusion" in corps) and saut:
+                drap = False
+                position=file_txt.tell()-120
+                break
+            elif "R EFERENCES  " in corps.upper()[:corps.find("    ")+2] or "REFERENCES  " in corps.upper()[:corps.find("    ")+2] or "  REFERENCES" in corps.upper() or "References" in corps and len(corps)<=40:
+                drap = False
+                break
+            elif "ACKNOWLEDGMENT" in corps.upper()[:corps.find("    ")] or "A CKNOWLEDGMENT" in corps.upper()[:corps.find("    ")]:
+                drap = False
+                break
+            elif corps.isdigit() and len(corps) < 4 or "" in line:
+                file_txt.seek(position2,0)
+                pos2 = True
+                line = file_txt.readline()
+                corps = line.strip()
+                break
+                
+            #lecture des lignes de corps
+            if "    " in corps:
+                buf = buf + corps[:corps.find("    ")] + " "
+            elif "        " in line and "           " not in corps:
+                line = file_txt.readline()
+                corps = line.strip()
+                break
+            else:
+                buf = buf + corps + " "
+            
+            if line=="\n" or ".          " in line:
+                saut=True
+            else:
+                saut=False
+            position=file_txt.tell()
+            line = file_txt.readline()
+            corps = line.strip()
+            
+        while pos2 and line:
+            #condition de passage a la premiere ligne ou d'arret ou de saut de ligne
+            if ("D ISCUSSION" in corps.upper()[:corps.find("    ")] or "DISCUSSION" in corps.upper()[:corps.find("    ")]) and "," not in corps and "-" not in corps and len(corps)<=50:
+                drap = False
+                break
+            elif "C ONCLUSION" in corps.upper()[corps.find("    "):] or "CONCLUSION" in corps.upper()[corps.find("    "):] and len(corps)<=130:
+                drap = False
+                break
+            elif corps.isdigit() and len(corps) < 4 or "" in line:
+                position2 = file_txt.tell()
+                pos2 = False
+                line = file_txt.readline()
+                corps = line.strip()
+                break
+            
+            
+            #lecture des lignes de corps
+            if "    " in corps:
+                buf = buf + corps[corps.find("    "):].strip() + " "
+            elif "    " in line and "    " not in corps:
+                buf = buf + corps + " "
+            position=file_txt.tell()
+            line = file_txt.readline()
+            corps = line.strip()
+        
+    buf = buf.replace("\n","")
+    while buf.find("  ") > -1:
+        buf = buf.replace("  "," ")        
+    return buf
+
+
+"""
+    La fonction find_discussion prend en parametre le nom du fichier texte ouvert
+    et renvoie les discussions du document
+"""
+def find_discussion(file_txt):
+    global position
+    buf=""
+    file_txt.seek(position,0)
+    line=file_txt.readline()
+    discussion=line.strip()
+    pos=0
+    limit=0
+    while "discussion" not in line.lower() and line:
+        line=file_txt.readline()
+        discussion=line.strip()
+    if "Discussion" in discussion:
+        pos=discussion.find("discussion")
+        while "conclusion" not in line.lower() and "c onclusion" not in line.lower() and "References" not in line and "R eferences" not in line and "Acknowledgment" not in line:
+            line=file_txt.readline()
+            discussion=line.strip()
+            if pos>=13:
+                limit=discussion.find("   ")
+                discussion=discussion[limit:]
+                buf+=discussion.strip()
+            else:
+                limit=discussion.find("   ")
+                discussion=discussion[:limit]
+                buf+=discussion.strip()
+    if buf=="":
+        buf="ce document ne comporte pas de section 'discussion'." 
+    return buf
+
+
+"""
+    La fonction find_conclusion prend en parametre le nom du fichier texte ouvert
+    et renvoie la conclusion du document
+"""
+def find_conclusion(file_txt):
+    global position
+    buf = ""
+    file_txt.seek(position,0)
+    line = file_txt.readline()
+    conclusion=line.strip()
+    pos=0
+    drap=0
+    limit=0
+    while "conclusion" not in line.lower() and "c onclusion" not in line.lower() and "references  " not in line.lower() and "r eferences  " not in line.lower() and "  r eferences" not in line.lower() and "references"!=conclusion.lower() and "TURE WORK" not in line:
+        line=file_txt.readline()
+        conclusion=line.strip()
+    if "conclusion"  in line.lower() or "c onclusion"  in line.lower() or "TURE WORK" in line:
+        if "conclusion"  in line.lower():
+            pos=line.lower().find("conclusion")
+            lg=len(conclusion)
+        else:
+            pos=conclusion.find("c onclusion")
+            lg=len(conclusion)
+        if "TURE WORK" in line:
+            pos=line.lower().find("TURE WORK")
+            lg=len(conclusion)
+        while "references  " not in line.lower() and "r eferences  " not in line.lower()  and "r eferences  " not in line.lower() and "  r eferences" not in line.lower() and "references"!=conclusion.lower():
+            line=file_txt.readline()
+            conclusion=line.strip()
+            if pos>15 or lg==125:
+                enter=True
+                if "17      " in conclusion:
+                    drap=1
+                    continue
+                if drap==0:
+                    
+                    limit=conclusion.find("   ")
+                    conclusion=conclusion[limit:]
+                    if "acknowledgments" in conclusion.lower():
+                        break
+                    if "follow-up work" in conclusion.lower():
+                        break
+                    buf+=conclusion.strip()
+                else:
+                    buf+=conclusion
+                    if len(conclusion.split())>16:
+                        posit=file_txt.tell()
+                        if conclusion=="":
+                            drap=2
+                            continue
+                        if drap==2:
+                            file_txt.seek(posit,0)
+                            drap=3
+                        if drap==3:
+                            conclusion=conclusion[limit:]
+                            conclusion=conclusion.strip()
+                            if "acknowledgments" in conclusion.lower():
+                                break
+                            if "follow-up work" in conclusion.lower():
+                                break
+                            buf+=conclusion.strip()
+                        elif drap!=3 and drap!=2:
+                            if "          " in line and "          " not in line.strip():
+                                continue
+                            conclusion=conclusion[:limit]
+                            conclusion=conclusion.strip()
+                            if "acknowledgments" in conclusion.lower():
+                                break
+                            if "follow-up work" in conclusion.lower():
+                                break
+                            buf+=conclusion
+            
+            elif pos<=15 and lg!=125:
+                limit=conclusion.find("   ")
+                if "          " in line and "          " not in line.strip():
+                    continue
+                ligne=conclusion[:limit] 
+                if "acknowledgments" in ligne.lower():
+                    break
+                if "follow-up work" in conclusion.lower():
+                    break
+                buf+=ligne
+    posit=file_txt.tell()
+    if buf=="":
+        buf="ce document ne comporte pas de section 'conclusion'."        
+    return buf
+
 
 """
     La fonction find_reference prend en parametre le nom du fichier texte ouvert
     et renvoie les references du document
 """
 def find_references(file_txt):
+    global position2
     buf = ""
+    file_txt.seek(position2,0)
     line = file_txt.readline()
     ref = line.strip()
     col = False
     pos2 = False
     mark = False
-    while(line == "\n" or ("REFERENCES  " not in ref.upper() and "R EFERENCES " not in ref.upper() and ref.upper() != "REFERENCES")):
+    not_mark=False
+    while(line == "\n" or  ("REFERENCES  " not in ref.upper() and "R EFERENCES " not in ref.upper() and ref.upper() != "REFERENCES") and line):
         if "                 " in ref:
             col = True
         if(ref.isdigit() == True and col == True):
-            position=file_txt.tell()
+            position2=file_txt.tell()
         if(line == "\n" and col == True):
             posi = file_txt.tell()
             line = file_txt.readline()
             ref = line.strip()
             if line == "\n":
-                position = file_txt.tell()
+                position2 = file_txt.tell()
             else:
                 file_txt.seek(posi,0)
         
@@ -650,7 +941,7 @@ def find_references(file_txt):
                 pos2 = True
                 mark = True
                 break
-                
+       
     drap = True               
     while(drap == True and line):
         while(line and pos2 != True):
@@ -666,17 +957,17 @@ def find_references(file_txt):
             if(not line):
                 drap = False
                 break
-            elif ref.isdigit() and col:
-                file_txt.seek(position,0)
+            elif((ref.isdigit() and col == True) or ("1967." in ref)):
+                file_txt.seek(position2,0)
                 pos2 = True
             elif(line == "\n"):
                 line = file_txt.readline()
                 ref = line.strip()
                 if(not line and col == True):
-                    file_txt.seek(position,0)
+                    file_txt.seek(position2,0)
                     pos2 = True
                 elif(( line == "\n" or ref.isdigit()) and col == True):
-                    file_txt.seek(position,0)
+                    file_txt.seek(position2,0)
                     line = file_txt.readline()
                     ref = line.strip()
                     pos2 = True
@@ -711,7 +1002,7 @@ def find_references(file_txt):
                 pos2 = False
             elif(ref.isdigit()):
                 pos2 = False
-                position = file_txt.tell()
+                position2 = file_txt.tell()
             elif(line == "\n"):
                 posi = file_txt.tell()
                 line = file_txt.readline()
@@ -719,11 +1010,11 @@ def find_references(file_txt):
                 if(not line):
                     drap = False
                 elif(line == "\n"):
-                    position = file_txt.tell()
+                    position2 = file_txt.tell()
                     pos2 = False
                 else:
-                    file_txt.seek(posi,0)      
+                    file_txt.seek(posi,0)
     buf = buf.replace("\n"," ")
     buf = buf.replace("References","")
     buf = buf.replace("R EFERENCES","")
-    return buf        
+    return buf
