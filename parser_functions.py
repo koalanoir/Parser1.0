@@ -12,6 +12,8 @@ from os.path import basename
 
 #variable globale pour sauvegarder la position entre les fonctions
 position=0
+position2=0
+position3=0
 
 maj=list(string.ascii_uppercase) #liste de toutes les majuscules
 minu=list(string.ascii_lowercase) #liste de toutes les minuscules
@@ -487,6 +489,197 @@ def find_author(file_txt):
         temp=temp+" "+affil
     temp=temp.replace("  "," ")
     temp=temp.replace(", ,",",")
+    
+    return temp
+
+
+"""
+    La fonction create_author prend en parametre le nom du fichier texte ouvert et le type de conversion (texte ou xml)
+    et renvoie la section auteurs du document
+"""
+def create_author(file_txt,param):
+    buf=find_author(file_txt)
+    author=""
+    email=""
+    affil=""
+    copie_email=False
+    copie_affil=False
+    for elem in range(len(buf)):
+        if buf[elem-1]=="\n" and buf[elem]=="$":
+            copie_email=True
+        if buf[elem-1]=="\n" and buf[elem]=="£":
+            copie_affil=True
+            copie_email=False
+        if copie_email and buf[elem]!="$":
+            email=email+buf[elem]
+        if copie_affil and buf[elem]!="£" and buf[elem]!="\\" and buf[elem]!="[":
+            affil=affil+buf[elem]
+        if not copie_email and not copie_affil and buf[elem]!="\n":
+            author=author+buf[elem]
+    affil=affil.replace(" ,",",")
+    bufer="$"+author+"£"+email
+    temp=""
+    buff=""
+    copie=False
+    not_copie=False
+    continu=True
+    while continu:
+        continu=False
+        buff=""
+        for i in range(len(bufer)):
+            if bufer[i-1]=="$" or bufer[i-1]=="£":
+                copie=True
+                not_copie=False
+            if (copie and (bufer[i]=="," or bufer[i]=="&" or bufer[i]==len(bufer)-1)) or (copie and (bufer[i]=="," or bufer[i]==len(bufer)-1)):
+                copie=False
+                temp=temp+";"
+            if copie:
+                temp=temp+bufer[i]
+            if not copie and bufer[i]!="&" and bufer[i]!=",":
+                not_copie=True
+            if not_copie:
+                buff=buff+bufer[i]
+                if bufer[i]!="$" and bufer[i]!="£":
+                    continu=True
+        temp=temp+"\n"
+        bufer=buff
+    buff=""
+    temp=temp.replace("£ ","£")
+    temp=temp[0:-2]
+    if "@" in temp:
+        for i in range(len(temp)):
+            if (temp[i-1]==";" or temp[i-1]=="£") and temp[i]!="\n":
+                if temp[i-2]==" ":
+                    buff=buff[0:-2]
+                else:
+                    buff=buff[0:-1]
+                buff=buff+", Adresse mail: "
+            if (temp[i]=="\n" and temp[i-1]==";") or (temp[i-1]==" " and temp[i-2]=="\n"):
+                buff=buff[0:-1]
+            buff=buff+temp[i]
+    else:
+        temp=temp.replace("£","").replace("$","").replace(";","")
+        for i in range(len(temp)):
+            if temp[i-1]=="\n" and temp[i-2]=="\n":
+                buff=buff[0:-1]
+            if (temp[i]=="\n" and temp[i-1]==" ") or (temp[i-1]==" " and temp[i-2]=="\n"):
+                buff=buff[0:-1]
+            buff=buff+temp[i]
+    temp=buff+"\n"
+    buff=""
+    
+    nb_author=1+author.count("&")+author.count(",")
+    nb_affil=affil.count("¤")
+    
+    if nb_affil==1:
+        for elem in range(len(temp)):
+            if temp[elem]=="\n":
+                buff=buff+"\n"+affil[1:]+"\n"
+            buff=buff+temp[elem]
+        temp=buff[0:-1]
+        buff=""
+    
+    cache=""
+    copie=False
+    not_copie=False
+    continu=True
+    if nb_affil==nb_author and nb_affil!=1:
+        bufer="$"+temp+"§"+affil[1:]
+        while continu:
+            continu=False
+            buff=""
+            for i in range(len(bufer)):
+                if bufer[i-1]=="$" or bufer[i-1]=="§":
+                    copie=True
+                    not_copie=False
+                if copie and (bufer[i]=="\n" or bufer[i]==len(bufer)-1 or bufer[i]=="¤"):
+                    copie=False
+                    cache=cache+"\n"
+                if copie:
+                    cache=cache+bufer[i]
+                if not copie and bufer[i]!="\n" and bufer[i]!="¤":
+                    not_copie=True
+                if not_copie:
+                    buff=buff+bufer[i]
+                    if bufer[i]!="$" and bufer[i]!="§":
+                        continu=True
+            cache=cache+"\n"
+            bufer=buff
+        temp=cache
+        buff=""
+        cache=""
+    
+    if nb_affil<nb_author and nb_affil==2:
+        for k in author:
+            if k=="&" or k==",":
+                buff=buff+k
+        nb_rc=0
+        for l in range(len(temp)):
+            if temp[l]=="\n":
+                nb_rc+=1
+                if nb_rc>1 and buff!="":
+                    cache=cache+buff[0]
+                    buff=buff[1:]
+            cache=cache+temp[l]
+        temp=cache
+        cache=""
+        buff=""
+        
+        affiliation=affil.split("¤")
+        for l in range(len(temp)):
+            if temp[l]=="\n" and temp[l-1]!="&" and temp[l-1]!=",":
+                buff="\n"+affiliation[1].strip()
+                cache=cache+buff+"\n"
+            if temp[l]=="\n" and temp[l-1]=="&":
+                cache=cache[0:-1]+buff+"\n"
+            if temp[l]=="\n" and temp[l-1]==",":
+                cache=cache[0:-1]+buff+" "+affiliation[2].strip()+"\n"
+            cache=cache+temp[l]
+        temp=cache[0:-1]
+        cache=""
+        buff=""
+    
+    temp=temp.replace("\n1 ","\n").replace("2 ","")
+    temp=temp.replace("\n ","\n")
+    not_affil=False
+    if "@" not in email and " " not in affil:
+        not_affil=True
+        temp=temp.replace("\n","\n\n")
+        temp=temp[0:-2]
+    else:
+        temp=temp[0:-1]
+    
+    if param=="-t":
+        temp="\tNom: "+temp
+        for indice in range(len(temp)):
+            if temp[indice-1]=="\n" and temp[indice-2]=="\n" and temp[indice]!="\n":
+                cache=cache+"\tNom: "
+            if temp[indice-1]=="\n" and temp[indice-2]!="\n" and temp[indice]!="\n":
+                cache=cache+"\tAffiliation(s): "
+            cache=cache+temp[indice]
+        temp=cache
+        cache=""
+    if param=="-x":
+        
+        temp="\t<auteur>"+temp
+        for indice in range(len(temp)):
+            if temp[indice-1]=="\n" and temp[indice-2]=="\n" and temp[indice]!="\n":
+                cache=cache+"\t<auteur>"
+            if temp[indice]=="\n" and temp[indice-1]!="\n" and temp[indice+1]!="\n":
+                cache=cache+"</auteur>"
+            if temp[indice-1]=="\n" and temp[indice-2]!="\n" and temp[indice]!="\n":
+                cache=cache+"\t<affiliation>"
+            if temp[indice]=="\n" and temp[indice-1]!="\n" and temp[indice+1]=="\n":
+                if not_affil:
+                    cache=cache+"</auteur>"
+                else:
+                    cache=cache+"</affiliation>"
+            cache=cache+temp[indice]
+        if not_affil:
+            temp=cache+"</auteur>\n"
+        else:
+            temp=cache+"</affiliation>\n"
+        cache=""
     
     return temp
 
