@@ -14,6 +14,8 @@ from os.path import basename
 position=0
 position2=0
 position3=0
+line = ""
+col = True
 
 maj=list(string.ascii_uppercase) #liste de toutes les majuscules
 minu=list(string.ascii_lowercase) #liste de toutes les minuscules
@@ -164,12 +166,28 @@ def find_title(file_txt):
     line = file_txt.readline() #lecture de la ligne suivante
     title=line.strip()
     titre=True
-    
+    drapPremier=False #utiliser pour reconnaire la premier ligne d'un titre
+    drapIPM=False #cas ipm
+    saut=16
     #pas de ligne de séparation dans le titre
-    while line=="\n" or len(title)<15 or len(title)>65:
+    while line=="\n" or "          " in title:
         line=file_txt.readline()
         title=line.strip()
-    while line!="\n" and len(title)<65 and titre:
+    while (line!="\n" or drapIPM) and title:
+        if drapPremier==False and "by Elsevier." in line:
+            drapIPM=True
+            line=file_txt.readline()
+            title=line.strip()
+            continue
+        if drapIPM==True and saut>0:
+            line=file_txt.readline()
+            title=line.strip()
+            saut-=1
+            continue
+        if "[" in line:
+            continue
+        if ("," in line or "and" in line or "   " in title) and "without" not in line and drapPremier==True:
+            break
         buf=buf+" "+title
         position=file_txt.tell() #on memorise la position
         line=file_txt.readline()
@@ -179,6 +197,7 @@ def find_title(file_txt):
                 titre=False
         if buf[0]==" ":
             buf=buf[1:len(buf)]
+        drapPremier=True
                 
     #suppression de certains espaces dans le titre
     if "and" in buf and "with" not in buf:
@@ -186,11 +205,10 @@ def find_title(file_txt):
         for i in buf:
             for j in buf:
                 if i in maj and j in minu:
+
                     buf=buf.replace(i+" "+j,i+j)
                 if i in minu and j in minu:
                     buf=buf.replace(i+" "+j,i+j)
-    
-    buf=buf
     return buf
 
 
