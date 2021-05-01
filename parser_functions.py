@@ -824,69 +824,86 @@ def find_abstract(file_txt):
     et renvoie l'introduction du document
 """
 def find_introduction(file_txt):
+    global position
     global position2
     global position3
-    buf = " "
-    line = file_txt.readline()
+    global line
+    global col
     intro = line.strip()
+    buf = " "
     drap = True
-    col = False
     pos2 = False
-    while(line == "\n" or ("INTRODUCTION" not in intro.upper() and "I NTRODUCTION" not in intro.upper()) ):
+    while(line == "\n" or ("INTRODUCTION" not in intro.upper() and "I NTRODUCTION" not in intro.upper() and "1  " not in intro[:4])):
+        
+        if line == "\n":
+            position = file_txt.tell()
         line = file_txt.readline()
         intro = line.strip()
-        if("      " in intro):
+        if("       " in intro):
             col = True
+    
+    print(intro)
     while drap and line:
-        while not pos2:
-            # verification du point d'arret ou de passage a la deuxieme colonne
-            if ("2 " in line[:4] and ".2" not in line[:4]) or "2. " in line[:4] or "II. " in intro[:4]:
+        
+        while not pos2 and line:
+            # verification du point d'arret ou de passage a la deuxieme colonne               
+            if (("2  " in line[:5] and ".2" not in line[:5]) or "2. " in intro[:4] or "II. " in intro[:5]) and (len(intro) < 70 or len(intro[:intro.find("     ")]) < 70):
                 drap = False
                 break
-            elif line == "\n" or (col  and "         " in line and "        " not in intro) or ("                                           " in line and "      " not in intro):
-                line = file_txt.readline()
-                intro = line.strip()
-                break
-            elif(intro.isdigit() and len(intro) < 4) or intro[:20].strip().isdigit():
-                file_txt.seek(position2,0)
+            elif col and ((intro.isdigit() and len(intro) < 4) or intro[:20].strip().isdigit()):
+                file_txt.seek(position,0)
                 pos2 = True
                 line = file_txt.readline()
                 intro = line.strip()
                 break      
-            elif(intro.isdigit() and len(intro) < 4) or intro[:20].strip().isdigit() or "distribution [8]." in line:
-                file_txt.seek(position2,0)
+            elif col and "" in line:
+                file_txt.seek(position,0)
                 pos2 = True
                 line = file_txt.readline()
                 intro = line.strip()
                 break
-            elif "" in line or "" in line or "I. " in line or "https:" in line or ("     " in intro and len(intro.replace(" ","")) < 3):
+            elif line == "\n" or (col and "                                             " in line and "      " not in intro):
                 line = file_txt.readline()
                 intro = line.strip()
                 break
-               
+            elif "" in line or "" in line or " I. " in line or "https:" in line or ("     " in intro and len(intro.replace(" ","")) < 3):
+                if (("2 " in line[:5] and ".2" not in line[:5]) or "2. " in intro[:4] or "II. " in intro[:4]) and len(intro) < 70:
+                    drap = False
+                    break
+                line = file_txt.readline()
+                intro = line.strip()
+                break
             #lecture des lignes de la premier colonne      
             if "     " in intro:
                 buf = buf + intro[:intro.find("     ")] + " "
             else:
                 buf = buf + intro + " "
+                if "1. " in line:
+                    line = file_txt.readline()
+                    intro = line.strip()
+                    buf = buf + intro + " "
             buf = buf.replace("\n"," ")
             line = file_txt.readline()
             intro = line.strip() 
             
-        while pos2:
+        while pos2 and line:
             #verification d'arret
             if line == "\n":
                 line = file_txt.readline()
                 intro = line.strip()
-                position2 = file_txt.tell()
+                position = file_txt.tell()
                 break
             elif (intro.isdigit() and len(intro) < 4) or intro[:20].strip().isdigit():
+                
                 pos2 = False
-                position2 = file_txt.tell()
+                position = file_txt.tell()
                 line = file_txt.readline()
                 intro = line.strip()
                 break
             elif "     "in intro and ("2 " in intro[intro.find("     "):].strip()[:4] or "2. " in intro[intro.find("     "):].strip()[:4] or "II. " in intro[intro.find("     "):].strip()[:4]):
+                drap = False
+                break
+            elif "2  " in intro:
                 drap = False
                 break
                 
@@ -898,16 +915,15 @@ def find_introduction(file_txt):
                 buf = buf + intro + " "
             line = file_txt.readline()
             intro = line.strip()
-   
+
     if not pos2 and "2 The" in line:
         position2 = file_txt.tell()
-        print
     buf = buf.replace("\n","")
-    while buf.find("  ") > -1:
+    while("  " in buf):
         buf = buf.replace("  "," ")
+    buf = buf.replace("- ","-")
     
     return buf
-
 
 """
     La fonction find_corps prend en parametre le nom du fichier texte ouvert
