@@ -709,84 +709,105 @@ def create_author(file_txt,param):
 def find_abstract(file_txt):
     global position
     global position2
+    global line
+    global col
+    position = 0
+    position2 = 0
     file_txt.seek(position,0) #recupere la position apres lecture du/des auteur(s)
     buf=""
     line=file_txt.readline() #lecture de la ligne suivante
     abstract = line.strip()
-    abstrait = False
-    esp="                                                         " #espace dans la ligne
+    pos2 = False
+    drap = True
+    col = False
+    position2 = file_txt.tell()
+    
     
     #premiere ligne de abstract
-    while line == "\n" or ("ABSTRACT" not in abstract.upper()) or (abstract[0] not in maj): #condition pour débuter abstract: une ligne non vide et le mot Abstract ou une majuscule
-        position2 = file_txt.tell()
-        line = file_txt.readline()
-        abstract = line.strip()
-        for indice in abstract:
-            if indice in maj:
-                abstrait=True
-        if line != "\n" and abstrait and esp not in line:
+    while line == "\n" or "ABSTRACT" not in abstract.upper(): #condition pour débuter abstract: une ligne non vide et le mot Abstract ou une majuscule  
+        print("0000000000000000000000000000000000000000000")
+        if line == "\n":
+            position = file_txt.tell()
+            """
+            posi = file_txt.tell()
+            cpt = 0
+            while line == "\n":
+                position = file_txt.tell()
+                cpt = cpt + 1
+                line = file_txt.readline()
+                abstract = line.strip()
+            if cpt == 3:
+                break
+            else:
+                file_txt.seek(posi,0)
+            """
+        if "ABSTRACT" in abstract.upper()[abstract.find("     "):].strip() or "A B S T R A C T" in abstract.upper()[abstract.find("                     "):].strip():
+            buf = buf + abstract.upper()[abstract.find("          "):].strip()
+            line = file_txt.readline()
+            abstract = line.strip()
+            pos2 = True
             break
-    if (abstract.upper() == "ABSTRACT") or ("ABSTRACT    " in abstract.upper()): #on saute la ligne qui ne contient que le mot Abstract
-        position2 = file_txt.tell()
+        
+        if "              " in abstract and '' not in line:
+            col = True
         line = file_txt.readline()
         abstract = line.strip()
-    while line == "\n" or abstract[0] not in maj or (esp in line and esp not in abstract): #condition pour débuter le paragraphe abstract: une ligne non vide et une colonne non vide et une majuscule
-        position2 = file_txt.tell()
-        line = file_txt.readline()
-        abstract = line.strip()
-    abstract = abstract.replace("Abstract.","")
-    abstract = abstract.replace("Abstract—","")
-    abstract = abstract.replace("Abstract","")
-    tiret=False
-    for indice in range (len(abstract)):
-        if abstract[indice-1]=="-" and abstract[indice]==" ":
-                tiret=True
-        if abstract[indice] == " " and abstract[indice+1] ==" ": #condition d'arret quand deux colonnes: deux espaces à suivre
-    	    break
-        buf=buf+abstract[indice]
-    #ajout d'un espace entre le dernier mot d'une ligne et celui de la ligne suivante
-    if (buf[len(buf)-1] in minu or buf[len(buf)-1]=="," or buf[len(buf)-1]=="?") and not tiret:
-        buf=buf+" "
-    #suppression du tiret en fin de ligne quand une seule colonne
-    if buf[len(buf)-1]=="-" or tiret:
-        buf=buf[:-1]
-        
-    #lignes suivantes de abstract
-    line=file_txt.readline()
-    abstract=line.strip()
-    point=False
-    while (line!="\n" and not (esp in line and esp not in abstract)) or not point: #condition d'arret: quand un point en fin de ligne ou colonne suivi d'une ligne ou colonne vide
-        tiret=False
-        if "Index Terms" in abstract or "Keywords" in abstract:
-            break
-        for indice in range (len(abstract)):
-            if abstract[indice-1]=="-" and abstract[indice]==" ":
-                tiret=True
-                buf=buf[:-1]
-            if (abstract[indice] == " " and abstract[indice+1] ==" ") or (esp in line and esp not in abstract): #condition d'arret quand deux colonnes: deux espaces à suivre ou colonne vide
-    	        if "               " not in abstract and not tiret:
-    	            buf=buf+" "
-    	        break
-            buf=buf+abstract[indice]
-    	
-        #ajout d'un espace entre le dernier mot d'une ligne et celui de la ligne suivante
-        if (buf[len(buf)-1] in minu or buf[len(buf)-1]=="," or buf[len(buf)-1]=="?") and not tiret:
-            buf=buf+" "
-        #suppression du tiret en fin de ligne quand une seule colonne
-        if buf[len(buf)-1]=="-":
-            buf=buf[:-1]
-        #verification du point pour la boucle
-        if buf[len(buf)-1]==".":
-            point=True
-        if buf[0]==" ":
-            buf=buf[1:len(buf)]
-        
-        line=file_txt.readline()
-        abstract=line.strip()
-        
-    position=file_txt.tell() #on memorise la position
     
-    buf=buf.replace("  "," ")
+    
+    while drap and line:
+        #lecture de la premiere colonne
+        while not pos2 and line:
+            
+            
+            #conditions d'arret, de passage a la deuxieme colonne ou de saut de lignes
+            if "INTRODUCTION" in abstract.upper()[:21] or "I NTRODUCTION" in abstract.upper()[:21] or ("1   " in abstract.upper()[:18] and "   1   " in line and len(abstract) < 70):
+                if "            " in abstract:
+                    col = True
+                drap = False
+                break
+            elif line == "\n" or (":" in line and "     " not in abstract):
+                if line == "\n":                
+                    position = file_txt.tell()
+                line = file_txt.readline()
+                abstract = line.strip()
+                break
+            #lecture de lignes
+            if col and "    " in abstract:  
+                buf = buf + abstract[:abstract.find("    ")] + " "
+            elif "                                                         " in line and "    " not in abstract:   
+                buf = buf + ""
+            else:
+                buf = buf + abstract + " "
+            line = file_txt.readline()
+            abstract = line.strip() 
+        
+        
+        #lecture de la deuxieme colonne
+        while pos2 and line:
+            #conditions d'arret, de passage a la premiere colonne ou de saut de lignes
+            if line == "\n":
+                if col:
+                    position2 = file_txt.tell()
+                line = file_txt.readline()
+                abstract = line.strip()
+                break
+            elif "INTRODUCTION" in abstract.upper()[:21] or "I NTRODUCTION" in abstract.upper()[:21] or ("1   " in abstract.upper()[:18] and "   1   " in line and len(abstract) < 70):
+                drap = False
+                break
+               
+            #lecture de lignes
+            if "     " in abstract:
+                buf = buf + abstract[abstract.find("     "):] + " "
+            elif "                            " in line and "     " not in abstract:
+                buf = buf +  abstract + " "
+            else:
+                buf = buf + ""
+            line = file_txt.readline()
+            abstract = line.strip()
+     
+    while("  " in buf):
+        buf = buf.replace("  "," ")
+    buf = buf.replace("- ","-")
     buf=buf.replace(" .",".")
     buf=buf.replace("dis tributed","distributed")
     buf=buf.replace("multipledocument","multiple-document")
