@@ -1,14 +1,9 @@
 # Parser1.0
 
-Syntaxe de la commande :
+Syntaxe :
   parser10.py [option] [arg]
   [option] : -t pour le format texte (format par défaut s'il n'est pas précisé), -x pour le format xml
   [arg] : repertoire , -help
-
-Syntaxe du menu :
-  all : mot clé pour parser tous les fichiers
-  [nom],[nom], ... ,[nom] : liste des fichiers à parser (la virgule est le seul séparateur accepté)
-  [nom] : nom d'un fichier pdf
 
 Description :
   parse est un outil d'aide à l'analyse de textes scientifiques.
@@ -20,3 +15,20 @@ Système :
   Le programme fonctionne sous Linux, en ligne de commandes.
   Il est implémenté en Python3.
   Il fonctionne avec des appels systémes et le programme pdftotext -layout.
+
+# Parser Precision
+
+Syntaxe :
+  parser_precision.py [arg1] [arg2]
+  [arg1] : adresse du fichier analysé par le programme Parser 1.0
+  [arg2] : adresse du ficher de référence
+  *bien vérifier les emplacements des fichiers
+
+Description :
+  parse précision est un outil d'aide au calcul de la précision du programme parser 1.0.
+  Ce programme accepte en entrée deux fichiers xml(le fichier issue de parser 1.0 et le fichier de rérérence).
+  Le résultat est affiché dans le shell.
+
+Système :
+  Le programme fonctionne sous Linux, en ligne de commandes.
+  Il est implémenté en Python3.
