@@ -166,28 +166,33 @@ def find_title(file_txt):
     line = file_txt.readline() #lecture de la ligne suivante
     title=line.strip()
     titre=True
-    drapPremier=False #utiliser pour reconnaire la premier ligne d'un titre
+    drapPremier=False #utiliser pour reconnaire la première ligne d'un titre avec tiret
     drapIPM=False #cas ipm
-    saut=16
+    esp_ipm=False #cas ipm pour les espaces
     #pas de ligne de séparation dans le titre
     while line=="\n" or "          " in title:
         line=file_txt.readline()
         title=line.strip()
-    while (line!="\n" or drapIPM) and title:
-        if drapPremier==False and "by Elsevier." in line:
-            drapIPM=True
+    if "Elsevier" in title:
+        drapIPM=True
+        esp_ipm=True
+        while "journal homepage" not in title:
             line=file_txt.readline()
             title=line.strip()
-            continue
-        if drapIPM==True and saut>0:
+        while line=="\n" or "www" in title:
             line=file_txt.readline()
             title=line.strip()
-            saut-=1
-            continue
+    while line!="\n" and title:
         if "[" in line:
             continue
-        if ("," in line or "and" in line or "   " in title) and "without" not in line and drapPremier==True:
-            break
+        if "-" in line and len(title)<50:
+            drapPremier=True
+        if ("," in line or "and" in line or "   " in title) and "without" not in line and not drapPremier:
+            if not drapIPM and "etc" not in title and (title.count(" ")<25 or title.count(" ")>30):
+                break
+            else:
+                drapIPM=False
+        
         buf=buf+" "+title
         position=file_txt.tell() #on memorise la position
         line=file_txt.readline()
@@ -197,18 +202,17 @@ def find_title(file_txt):
                 titre=False
         if buf[0]==" ":
             buf=buf[1:len(buf)]
-        drapPremier=True
-                
+             
     #suppression de certains espaces dans le titre
-    if "and" in buf and "with" not in buf:
+    if "and" in buf and "with" not in buf and not drapPremier and not esp_ipm:
         buf=buf.replace("and","And")
         for i in buf:
             for j in buf:
                 if i in maj and j in minu:
-
                     buf=buf.replace(i+" "+j,i+j)
                 if i in minu and j in minu:
                     buf=buf.replace(i+" "+j,i+j)
+    
     return buf
 
 
@@ -229,7 +233,7 @@ def find_email(file_txt):
     col="§"
     #reperage de l'adresse mail avec le symbole "@"
     while line!="\n":
-        if ".edu" in email and "      " not in email and "{" not in email:
+        if (".edu" in email and "@mail" not in email and "@upf" not in email and "      " not in email and "{" not in email) or ("," in email and len(email)>50 and len(email)<55):
             email=email.replace("Q","@")
             buf=buf+"{"
             for j in email:
@@ -315,6 +319,7 @@ def find_email(file_txt):
         bufer=bufer.replace("§§","§")
         buf=bufer
     temp=temp.replace("§","").strip()
+    temp=temp.replace("andrea.linhares@ufc.br,","").replace(".fra",".fr,a")
     
     for indice in range(len(temp)):
         if temp[indice]==" " and temp[indice-1]!=",":
@@ -336,17 +341,23 @@ def find_affiliation(file_txt):
     cache=""
     parent=False
     pos=0
-    while line!="\n" and "ABSTRACT" not in line.upper():
+    arrob=False
+    while line!="\n" and "ABSTRACT" not in line.upper() and "Article" not in line:
         if "@" in line and "      " in affil:
             for i in range(len(affil)):
                 if affil[i]==" " and affil[i-1]==" ":
+                    if not arrob:
+                        cache+=affil[pos:i]
                     pos=i
+                    arrob=False
                 if affil[i]=="@":
-                    affil=affil[0:pos]
-                    break
+                    arrob=True
             pos=0
+            affil=cache
+            cache=""
         if "@" not in affil and ("[" not in affil or "]" not in affil) and ".edu" not in affil and ".fr" not in affil:
             buf=buf+"$"
+            
             for indice in range(len(affil)):
                 if affil[indice]=="(":
                     parent=True
@@ -372,6 +383,8 @@ def find_affiliation(file_txt):
     continu=True
     bufer=""
     temp=""
+    if "$1$" and "$2$" and "$3$" in buf:
+        buf=buf.replace("$1$","¤").replace("$2$","¤").replace("$3$","¤")
     if "      " not in buf:
         temp=buf
     while "      " in buf and continu:
@@ -405,7 +418,7 @@ def find_affiliation(file_txt):
     if temp!="":
         temp="¤"+temp.replace("$"," ").strip()
         temp=temp.replace("N e w Y o r k","New York").replace("N Y","NY").replace("U S A","USA")
-        
+    
     return temp
 
 
@@ -425,13 +438,20 @@ def find_author(file_txt):
         author=line.strip()
     
     #premiere ligne du/des auteur(s)
+    nb_virg=0
+    len_author=0
     while line!="\n": #on va jusqu'a la prochaine ligne vide pour se positionner au bon endroit pour la lecture de abstract
-        while auteur:
+        while auteur and "Institut" not in author and "@" not in author:
             if "1st" in author or "2nd" in author or "rd " in author: #on elimine les nombres cardinaux
                 author=author.replace("1st","").replace("2nd","").replace("rd","")
             author=author.replace(". ",".")
             author=author.replace(" and "," & ")
+            author=author.replace("† ,"," &")
+            author=author.replace("†","")
             for i in author:
+                if i == ",":
+                    len_author=len(author)
+                    nb_virg += 1
                 if i in nb or i=="∗" or i=="\\" or i=="[" or i=="]" or i == ",":
                     author=author.replace(i,"")
                 author=author.replace("  "," ") #on remplace le double espace par un simple espace
@@ -450,6 +470,8 @@ def find_author(file_txt):
                     auteur=True
                 if indice=="," or indice in nb: #condition d'arret: une virgule ou un chiffre
                     auteur=False
+                if indice in nb and nb_virg==4:
+                    auteur=True
         line=file_txt.readline()
         position=file_txt.tell() #on memorise la position
         
@@ -468,7 +490,7 @@ def find_author(file_txt):
     #seconde ligne du/des auteurs
     auteur=True
     pos=False
-    while line!="\n" and auteur and len(author)>60 and len(author)<65:
+    while line!="\n" and auteur and len(author)>60 and len(author)<70 and author.count(" ")<45:
         for indice in author:
             if indice=="," or indice in nb: #condition d'arret: une virgule ou un chiffre
                 auteur=False
@@ -483,19 +505,43 @@ def find_author(file_txt):
         affil=find_affiliation(file_txt)
         file_txt.seek(position,0)
     
+    #suppression de la lettre a qui est associée à l'affiliation
+    if "¤a " in affiliation and "&" in buf and "," not in buf:
+        buf=buf[0:-1].replace(" a "," ")
+        affiliation=affiliation.replace("¤a","¤")
+    temp=buf
+    
     #ajout des virgules comme séparateur entre les noms
     temp = ""
     count = 0
-    buf = buf.strip()
+    new_esp = False
+    arret = False
+    buf = buf.strip().replace("  "," ")
     buf=buf.replace("Torres Moreno","Torres-Moreno")
+    if "⇑" in buf:
+        buf=buf.replace(" a","").replace(" b","").replace(" c","").replace(" d","")
     for indice in range(len(buf)):
+        
+        if nb_virg==4 and len_author>60 and len_author<65 and (not arret or buf[indice]=="A"):
+            new_esp=True
+        if buf[indice]=="-" and new_esp:
+            new_esp=False
+            arret=True
+        
         if buf[indice]==" " and not ((buf[indice]==" " and buf[indice-1]=="e" and buf[indice-2]== "L") or (buf[indice]==" " and buf[indice-1]=="a" and buf[indice-2]== "d")):
             count = count + 1 #comptage des espaces
         if (buf[indice]==" " and buf[indice+1]=="&") or (buf[indice]==" " and buf[indice-1]=="&"):
             count=0
-        if count == 2:
+        if count == 2 and (nb_virg!=2 or len_author<65 or len_author>70) and not new_esp:
             temp = temp + ","
             count = 0
+        if (count == 3 and nb_virg==2 and len_author>65 and len_author<70) or (count == 3 and new_esp):
+            temp = temp + ","
+            count = 0
+        if buf[indice]==" " and buf[indice+1]=="V" and buf[indice+2]== "o" and "-" in buf:
+            temp = temp + ","
+            count = 0
+            new_esp=True
         temp = temp + buf[indice]
     
     #on ajoute les adresses mails à la suite du/des nom(s) d'auteur(s)
@@ -586,6 +632,34 @@ def create_author(file_txt,param):
     temp=buff+"\n"
     buff=""
     
+    
+    cache=""
+    copie=False
+    not_copie=False
+    continu=True
+    if "†" in affil and "∗" in affil:
+        cop=False
+        for i in range(len(affil)):
+            if affil[i]=="¤":
+                copie=True
+            if affil[i]=="†":
+                copie=False
+                not_copie=True
+            if affil[i]=="T" and not_copie:
+                copie=True
+                not_copie=False
+                cop=True
+            if copie:
+                buff=buff+affil[i]
+            if not copie or cop:
+                cache=cache+affil[i]
+        affil=buff+cache
+        affil=affil.replace("∗","").replace("†","¤†")#.replace("¤¤","¤").replace("¤ "," ¤")
+        buff=""
+        cache=""
+    if " b " and " c " and " d " in affil:
+        affil=affil.replace("¤a ","¤").replace(" b ","¤").replace(" c ","¤").replace(" d ","¤")
+    
     nb_author=1+author.count("&")+author.count(",")
     nb_affil=affil.count("¤")
     
@@ -597,10 +671,6 @@ def create_author(file_txt,param):
         temp=buff[0:-1]
         buff=""
     
-    cache=""
-    copie=False
-    not_copie=False
-    continu=True
     if nb_affil==nb_author and nb_affil!=1:
         bufer="$"+temp+"§"+affil[1:]
         while continu:
@@ -627,7 +697,7 @@ def create_author(file_txt,param):
         buff=""
         cache=""
     
-    if nb_affil<nb_author and nb_affil==2:
+    if nb_affil<nb_author and (nb_affil==2 or nb_affil==3 or nb_affil==4):
         for k in author:
             if k=="&" or k==",":
                 buff=buff+k
@@ -642,17 +712,63 @@ def create_author(file_txt,param):
         temp=cache
         cache=""
         buff=""
-        
-        affiliation=affil.split("¤")
-        for l in range(len(temp)):
-            if temp[l]=="\n" and temp[l-1]!="&" and temp[l-1]!=",":
-                buff="\n"+affiliation[1].strip()
-                cache=cache+buff+"\n"
-            if temp[l]=="\n" and temp[l-1]=="&":
-                cache=cache[0:-1]+buff+"\n"
-            if temp[l]=="\n" and temp[l-1]==",":
-                cache=cache[0:-1]+buff+" "+affiliation[2].strip()+"\n"
-            cache=cache+temp[l]
+        if "†" in affil:
+            affiliation=affil.replace("†","").split("¤")
+            for l in range(len(temp)):
+                if temp[l]=="\n" and temp[l-1]!="&" and temp[l-1]!=",":
+                    buff="\n"+affiliation[1].strip()
+                    cache=cache+buff+"\n"
+                if temp[l]=="\n" and temp[l-1]=="&":
+                    cache=cache+buff+"\n"
+                if temp[l]=="\n" and temp[l-1]==",":
+                    buff="\n"+affiliation[2].strip()
+                    cache=cache+buff+"\n"
+                cache=cache+temp[l]
+        else:
+            affiliation=affil.split("¤")
+            nb_virg=0
+            if nb_affil==2:
+                for l in range(len(temp)):
+                    if temp[l]=="\n" and temp[l-1]!="&" and temp[l-1]!=",":
+                        buff="\n"+affiliation[1].strip()
+                        cache=cache+buff+"\n"
+                    if temp[l]=="\n" and temp[l-1]=="&":
+                        cache=cache[0:-1]+buff+"\n"
+                    if temp[l]=="\n" and temp[l-1]==",":
+                        cache=cache[0:-1]+buff+" "+affiliation[2].strip()+"\n"
+                    cache=cache+temp[l]
+            if nb_affil==3:
+                for l in range(len(temp)):
+                    if temp[l]==",":
+                        nb_virg+=1
+                    if temp[l]=="\n" and temp[l-1]!="," and nb_virg==1:
+                        buff="\n"+affiliation[1].strip()
+                        cache=cache+buff+"\n"
+                    if temp[l]=="\n" and temp[l-1]=="," and nb_virg==5:
+                        cache=cache[0:-1]+buff+"\n"
+                    if temp[l]=="\n" and temp[l-1]=="," and nb_virg==7:
+                        cache=cache[0:-1]+"\n"+affiliation[3].strip()+"\n"
+                    if temp[l]=="\n" and temp[l-1]=="," and nb_virg==3:
+                        cache=cache[0:-1]+buff+" "+affiliation[2].strip()+"\n"
+                    cache=cache+temp[l]
+                nb_virg=0
+            if nb_affil==4:
+                for l in range(len(temp)):
+                    if temp[l]==",":
+                        nb_virg+=1
+                    if temp[l]=="\n" and temp[l-1]!="," and nb_virg==0:
+                        buff="\n"+affiliation[1].strip()
+                        cache=cache+buff+"\n"
+                    if temp[l]=="\n" and temp[l-1]=="," and nb_virg==1:
+                         cache=cache[0:-1]+"\n"+affiliation[3].strip()+"\n"
+                    if temp[l]=="\n" and temp[l-1]=="," and nb_virg==2:
+                        cache=cache[0:-1]+"\n"+affiliation[4].strip()+"\n"
+                    if temp[l]=="\n" and temp[l-1]=="," and nb_virg==3:
+                        cache=cache[0:-1]+"\n"+affiliation[2].strip()+"\n"
+                    if temp[l]=="\n" and temp[l-1]=="," and nb_virg==4:
+                        cache=cache[0:-1]+buff+"\n"
+                    cache=cache+temp[l]
+                nb_virg=0
         temp=cache[0:-1]
         cache=""
         buff=""
@@ -672,7 +788,7 @@ def create_author(file_txt,param):
         for indice in range(len(temp)):
             if temp[indice-1]=="\n" and temp[indice-2]=="\n" and temp[indice]!="\n":
                 cache=cache+"\tNom: "
-            if temp[indice-1]=="\n" and temp[indice-2]!="\n" and temp[indice]!="\n":
+            if temp[indice-1]=="\n" and temp[indice-2]!="\n" and temp[indice]!="\n" and temp[indice]!="\t":
                 cache=cache+"\tAffiliation(s): "
             cache=cache+temp[indice]
         temp=cache
@@ -680,25 +796,35 @@ def create_author(file_txt,param):
     if param=="-x":
         
         temp="\t<auteur>"+temp
-        for indice in range(len(temp)):
-            if temp[indice-1]=="\n" and temp[indice-2]=="\n" and temp[indice]!="\n":
-                cache=cache+"\t<auteur>"
-            if temp[indice]=="\n" and temp[indice-1]!="\n" and temp[indice+1]!="\n":
-                cache=cache+"</auteur>"
-            if temp[indice-1]=="\n" and temp[indice-2]!="\n" and temp[indice]!="\n":
-                cache=cache+"\t<affiliation>"
-            if temp[indice]=="\n" and temp[indice-1]!="\n" and temp[indice+1]=="\n":
-                if not_affil:
-                    cache=cache+"</auteur>"
-                else:
-                    cache=cache+"</affiliation>"
-            cache=cache+temp[indice]
-        if not_affil:
-            temp=cache+"</auteur>\n"
+        if temp.count(" ")<15 and temp.count(" ")>10:
+            for indice in range(len(temp)):
+                if temp[indice-1]=="\n" and temp[indice-2]=="\n" and temp[indice]!="\n":
+                    cache=cache[0:-3]+"</auteur>\n\n"
+                if temp[indice-1]=="\n" and temp[indice-2]=="\n" and temp[indice]!="\n":
+                    cache=cache+"\t<auteur>"
+                cache=cache+temp[indice]
+            temp=cache[0:-1]+"</auteur>\n"
         else:
-            temp=cache+"</affiliation>\n"
+            for indice in range(len(temp)):
+                if temp[indice-1]=="\n" and temp[indice-2]=="\n" and temp[indice]!="\n":
+                    cache=cache+"\t<auteur>"
+                if temp[indice]=="\n" and temp[indice-1]!="\n" and temp[indice+1]!="\n":
+                    cache=cache+"</auteur>"
+                if temp[indice-1]=="\n" and temp[indice-2]!="\n" and temp[indice]!="\n":
+                    cache=cache+"\t<affiliation>"
+                if temp[indice]=="\n" and temp[indice-1]!="\n" and temp[indice+1]=="\n":
+                    if not_affil:
+                        cache=cache+"</auteur>"
+                    else:
+                        cache=cache+"</affiliation>"
+                cache=cache+temp[indice]
+        
+            if not_affil:
+                temp=cache+"</auteur>\n"
+            else:
+                temp=cache+"</affiliation>\n"
         cache=""
-    
+        
     return temp
 
 
@@ -713,6 +839,8 @@ def find_abstract(file_txt):
     global col
     position = 0
     position2 = 0
+    position3 = 0
+    cpt = 0
     file_txt.seek(position,0) #recupere la position apres lecture du/des auteur(s)
     buf=""
     line=file_txt.readline() #lecture de la ligne suivante
@@ -720,27 +848,32 @@ def find_abstract(file_txt):
     pos2 = False
     drap = True
     col = False
+    deb = False
     position2 = file_txt.tell()
     
     
     #premiere ligne de abstract
-    while line == "\n" or "ABSTRACT" not in abstract.upper(): #condition pour débuter abstract: une ligne non vide et le mot Abstract ou une majuscule  
-        print("0000000000000000000000000000000000000000000")
-        if line == "\n":
+    while line == "\n" or "ABSTRACT" not in abstract.upper(): #condition pour débuter abstract: une ligne non vide et le mot Abstract ou une majuscule
+        while line == "\n":
             position = file_txt.tell()
-            """
-            posi = file_txt.tell()
-            cpt = 0
-            while line == "\n":
-                position = file_txt.tell()
-                cpt = cpt + 1
-                line = file_txt.readline()
-                abstract = line.strip()
-            if cpt == 3:
-                break
-            else:
-                file_txt.seek(posi,0)
-            """
+            posi = position
+            line = file_txt.readline()
+            abstract = line.strip()
+            #pour mikheev
+            if line != "\n" and abstract[0].isupper() and not deb and "ABSTRACT" not in abstract.upper():
+                posi2 = posi
+            elif "ABSTRACT" in abstract.upper():
+                
+                posi2 = file_txt.tell()
+                deb = True
+        #pour le fichier mikheev
+        if "INTRODUCTION" in abstract.upper()[:21] or "I NTRODUCTION" in abstract.upper()[:21] or ("1   " in abstract.upper()[:18] and "   1   " in line and len(abstract) < 70):
+            file_txt.seek(posi2,0)
+            line = file_txt.readline()
+            abstract = line.strip()
+            posi2 = 0
+            break
+
         if "ABSTRACT" in abstract.upper()[abstract.find("     "):].strip() or "A B S T R A C T" in abstract.upper()[abstract.find("                     "):].strip():
             buf = buf + abstract.upper()[abstract.find("          "):].strip()
             line = file_txt.readline()
@@ -758,25 +891,25 @@ def find_abstract(file_txt):
         #lecture de la premiere colonne
         while not pos2 and line:
             
-            
             #conditions d'arret, de passage a la deuxieme colonne ou de saut de lignes
+            if "ABSTRACT" in line.upper() and "       " in abstract:
+                col = True
             if "INTRODUCTION" in abstract.upper()[:21] or "I NTRODUCTION" in abstract.upper()[:21] or ("1   " in abstract.upper()[:18] and "   1   " in line and len(abstract) < 70):
                 if "            " in abstract:
                     col = True
                 drap = False
                 break
-            elif line == "\n" or (":" in line and "     " not in abstract):
-                if line == "\n":                
-                    position = file_txt.tell()
+            elif line == "\n":               
+                position = file_txt.tell()
                 line = file_txt.readline()
                 abstract = line.strip()
                 break
             #lecture de lignes
-            if col and "    " in abstract:  
+            if (col and "    " in abstract):  
                 buf = buf + abstract[:abstract.find("    ")] + " "
-            elif "                                                         " in line and "    " not in abstract:   
+            elif "                                                         " in line and "    " not in abstract:
                 buf = buf + ""
-            else:
+            else:   
                 buf = buf + abstract + " "
             line = file_txt.readline()
             abstract = line.strip() 
@@ -816,6 +949,7 @@ def find_abstract(file_txt):
     buf=buf.replace("C OVERAGE","COVERAGE")
     buf=buf.replace("R ESPONSIVENESS","RESPONSIVENESS")
     buf=buf.replace("P YRAMIDS","PYRAMIDS")
+    
     return buf
 
 
@@ -829,6 +963,7 @@ def find_introduction(file_txt):
     global position3
     global line
     global col
+    col = False
     intro = line.strip()
     buf = " "
     drap = True
@@ -841,22 +976,28 @@ def find_introduction(file_txt):
         intro = line.strip()
         if("       " in intro):
             col = True
-    
-    print(intro)
-    while drap and line:
-        
-        while not pos2 and line:
-            # verification du point d'arret ou de passage a la deuxieme colonne               
-            if (("2  " in line[:5] and ".2" not in line[:5]) or "2. " in intro[:4] or "II. " in intro[:5]) and (len(intro) < 70 or len(intro[:intro.find("     ")]) < 70):
-                drap = False
-                break
+
+            """
             elif col and ((intro.isdigit() and len(intro) < 4) or intro[:20].strip().isdigit()):
                 file_txt.seek(position,0)
                 pos2 = True
                 line = file_txt.readline()
                 intro = line.strip()
-                break      
+                break
+            """   
+    while drap and line:
+        
+        while not pos2 and line:
+            # verification du point d'arret ou de passage a la deuxieme colonne
+            if("       " in intro):
+                col = True              
+            if (("2 " in line[:5] and ".2" not in line[:5]) or "2. " in intro[:4] or "II. " in intro[:5]) and (len(intro) < 70 or len(intro[:intro.find("     ")]) < 70):
+                drap = False
+                break   
             elif col and "" in line:
+                if (("2 " in line[:5] and ".2" not in line[:5]) or "2. " in intro[:4] or "II. " in intro[:4]) and len(intro) < 70:
+                    drap = False
+                    break
                 file_txt.seek(position,0)
                 pos2 = True
                 line = file_txt.readline()
@@ -866,10 +1007,7 @@ def find_introduction(file_txt):
                 line = file_txt.readline()
                 intro = line.strip()
                 break
-            elif "" in line or "" in line or " I. " in line or "https:" in line or ("     " in intro and len(intro.replace(" ","")) < 3):
-                if (("2 " in line[:5] and ".2" not in line[:5]) or "2. " in intro[:4] or "II. " in intro[:4]) and len(intro) < 70:
-                    drap = False
-                    break
+            elif "" in line or " I. " in line or "https:" in line or ("     " in intro and len(intro.replace(" ","")) < 3):
                 line = file_txt.readline()
                 intro = line.strip()
                 break
@@ -893,8 +1031,7 @@ def find_introduction(file_txt):
                 intro = line.strip()
                 position = file_txt.tell()
                 break
-            elif (intro.isdigit() and len(intro) < 4) or intro[:20].strip().isdigit():
-                
+            elif col and "" in line:
                 pos2 = False
                 position = file_txt.tell()
                 line = file_txt.readline()
@@ -925,6 +1062,7 @@ def find_introduction(file_txt):
     
     return buf
 
+
 """
     La fonction find_corps prend en parametre le nom du fichier texte ouvert
     et renvoie le corps du document
@@ -933,35 +1071,38 @@ def find_corps(file_txt):
     global position
     global position2
     global position3
-    if position2==8468:
-        file_txt.seek(position2,0)
-    else:
-        file_txt.seek(position3,0)
+    global line
     buf = ""
-    line = file_txt.readline()
     corps = line.strip()
     pos2 = False
     drap = True
     col = False
-    
-    while (line == "\n" or (("2  " not in line[:5] or ".2  " in line[:5]) and "2. " not in line[:4] and "II." not in corps[:4]) and line) and position2!=8468:
+    drapL18=False
+    if position<1400 and position>1300:
+       drapL18=True
+    while (line == "\n" or (("2  " not in line[:5] or ".2  " in line[:5]) and "2. " not in line[:4] and "II." not in corps[:4]) and line) and not drapL18 and position2!=8468:
         if "     "in corps and ("2  " in corps[corps.find("     "):].strip()[:5] or "2.  " in corps[corps.find("     "):].strip()[:5] or "II." in corps[corps.find("     "):].strip()[:4]):
             pos2 = True
             break
+        elif "                                                      " in line and "        " not in corps:
+            if "2  " in corps.strip()[:5] or "2.  " in corps.strip()[:5] or "II." in corps.strip()[:4]:
+                pos2 = True
+                col = True
+                break
         if "      " in corps:
             col = True 
         line = file_txt.readline()
         corps = line.strip()
     saut=False
+    sauter=False
     while line and drap:
         while not pos2 and line:
             #condition de passage a la deuxieme ligne ou d'arrét ou de saut de ligne
             if ("D ISCUSSION" in corps.upper()[:corps.find("    ")] or "DISCUSSION" in corps.upper()[:corps.find("    ")] or "  DISCUSION" in corps.upper() or "Discussion" in corps) and "," not in corps and "-" not in corps and len(corps)<=40:
                 drap = False
                 break
-            elif ("C ONCLUSION" in corps.upper()[:corps.find("    ")] or "CONCLUSION" in corps.upper()[:corps.find("    ")] or "  CONCLUSION" in corps.upper() or "Conclusion" in corps) and saut:
+            elif ("C ONCLUSION" in corps.upper()[:corps.find("    ")] or "CONCLUSION" in corps.upper()[:corps.find("    ")] or "  CONCLUSION" in corps.upper() or "Conclusion" in corps) and (saut or sauter):
                 drap = False
-                position=file_txt.tell()-120
                 break
             elif "R EFERENCES  " in corps.upper()[:corps.find("    ")+2] or "REFERENCES  " in corps.upper()[:corps.find("    ")+2] or "  REFERENCES" in corps.upper() or "References" in corps and len(corps)<=40:
                 drap = False
@@ -969,13 +1110,17 @@ def find_corps(file_txt):
             elif "ACKNOWLEDGMENT" in corps.upper()[:corps.find("    ")] or "A CKNOWLEDGMENT" in corps.upper()[:corps.find("    ")]:
                 drap = False
                 break
-            elif corps.isdigit() and len(corps) < 4 or "" in line:
+            elif "●" in line:
+                line = file_txt.readline()
+                corps = line.strip()
+                break
+            elif "" in line:
                 file_txt.seek(position2,0)
                 pos2 = True
                 line = file_txt.readline()
                 corps = line.strip()
                 break
-                
+            
             #lecture des lignes de corps
             if "    " in corps:
                 buf = buf + corps[:corps.find("    ")] + " "
@@ -990,10 +1135,12 @@ def find_corps(file_txt):
                 saut=True
             else:
                 saut=False
+            if "ContentWindow20" in line:
+                sauter=True
             position=file_txt.tell()
             line = file_txt.readline()
             corps = line.strip()
-            
+        
         while pos2 and line:
             #condition de passage a la premiere ligne ou d'arret ou de saut de ligne
             if ("D ISCUSSION" in corps.upper()[:corps.find("    ")] or "DISCUSSION" in corps.upper()[:corps.find("    ")]) and "," not in corps and "-" not in corps and len(corps)<=50:
@@ -1002,7 +1149,11 @@ def find_corps(file_txt):
             elif "C ONCLUSION" in corps.upper()[corps.find("    "):] or "CONCLUSION" in corps.upper()[corps.find("    "):] and len(corps)<=130:
                 drap = False
                 break
-            elif corps.isdigit() and len(corps) < 4 or "" in line:
+            elif "CONCLUSION" in corps.upper() and len(line)<=35 and len(corps)<15:
+                drap = False
+                position=file_txt.tell()-35
+                break
+            elif  "" in line:
                 position2 = file_txt.tell()
                 pos2 = False
                 line = file_txt.readline()
@@ -1022,6 +1173,22 @@ def find_corps(file_txt):
     buf = buf.replace("\n","")
     while buf.find("  ") > -1:
         buf = buf.replace("  "," ")        
+    
+    if "†" in buf:
+        suppr=False
+        temp=""
+        for i in range(len(buf)):
+            if buf[i-1]=="." and buf[i-2]=="4" and buf[i-3]=="1" and buf[i-4]=="0" and buf[i-5]=="2":
+                suppr=True
+            if suppr:
+                temp+=buf[i]
+        buf=temp
+        temp=""
+        suppr=False
+    
+    if "Acknowledgments" in buf:
+        buf=buf[:-15]
+    
     return buf
 
 
@@ -1054,7 +1221,10 @@ def find_discussion(file_txt):
                 discussion=discussion[:limit]
                 buf+=discussion.strip()
     if buf=="":
-        buf="ce document ne comporte pas de section 'discussion'." 
+        buf="ce document ne comporte pas de section 'discussion'."
+    if "Acknowledgments" in buf:
+        buf=buf[:-15]
+    
     return buf
 
 
@@ -1065,6 +1235,9 @@ def find_discussion(file_txt):
 def find_conclusion(file_txt):
     global position
     buf = ""
+    col2=False
+    if position>18000 and position<18100:
+        col2=True
     file_txt.seek(position,0)
     line = file_txt.readline()
     conclusion=line.strip()
@@ -1084,16 +1257,21 @@ def find_conclusion(file_txt):
         if "TURE WORK" in line:
             pos=line.lower().find("TURE WORK")
             lg=len(conclusion)
-        while "references  " not in line.lower() and "r eferences  " not in line.lower()  and "r eferences  " not in line.lower() and "  r eferences" not in line.lower() and "references"!=conclusion.lower():
+        while "references  " not in line.lower() and "r eferences  " not in line.lower()  and "r eferences  " not in line.lower() and "  r eferences" not in line.lower() and "references"!=conclusion.lower() and "acknowledgement" not in line.lower():
             line=file_txt.readline()
             conclusion=line.strip()
+            if col2:
+                buf+=conclusion
+                if "system between" in conclusion:
+                    file_txt.seek(position-5500,0)
+                    col2=False
+                continue
             if pos>15 or lg==125:
                 enter=True
                 if "17      " in conclusion:
                     drap=1
                     continue
                 if drap==0:
-                    
                     limit=conclusion.find("   ")
                     conclusion=conclusion[limit:]
                     if "acknowledgments" in conclusion.lower():
@@ -1101,6 +1279,7 @@ def find_conclusion(file_txt):
                     if "follow-up work" in conclusion.lower():
                         break
                     buf+=conclusion.strip()
+
                 else:
                     buf+=conclusion
                     if len(conclusion.split())>16:
@@ -1139,10 +1318,16 @@ def find_conclusion(file_txt):
                     break
                 if "follow-up work" in conclusion.lower():
                     break
+                if "just by restricting to" in conclusion or "randomly selected dimensions from" in conclusion or "U+W2 space." in conclusion or "1033" in conclusion:
+                    continue
                 buf+=ligne
+
     posit=file_txt.tell()
     if buf=="":
         buf="ce document ne comporte pas de section 'conclusion'."        
+    if "Acknowledgement" in buf:
+        buf=buf[0:-len("Acknowledgement")]
+    
     return buf
 
 
@@ -1153,6 +1338,9 @@ def find_conclusion(file_txt):
 def find_references(file_txt):
     global position2
     buf = ""
+    drapGUY=False
+    if position2==12718:
+        drapGUY=True
     file_txt.seek(position2,0)
     line = file_txt.readline()
     ref = line.strip()
@@ -1189,9 +1377,9 @@ def find_references(file_txt):
                 pos2 = True
                 mark = True
                 break
-       
+    
     drap = True               
-    while(drap == True and line):
+    while(drap == True and line and not drapGUY):
         while(line and pos2 != True):
             for i in range (len(ref)):
                 if("         " in line and "    " not in ref):
@@ -1262,7 +1450,16 @@ def find_references(file_txt):
                     pos2 = False
                 else:
                     file_txt.seek(posi,0)
+    
+    if drapGUY:
+        while "VI. CONCLUSION" not in line.strip():
+            line=file_txt.readline()
+            ref=line.strip()
+            buf+=ref[ref.find("        "):]
+        buf=buf.replace("         ","  ")
+    
     buf = buf.replace("\n"," ")
     buf = buf.replace("References","")
     buf = buf.replace("R EFERENCES","")
+    
     return buf
